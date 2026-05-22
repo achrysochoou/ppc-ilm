@@ -1,16 +1,55 @@
 services:
+  #---------------------------------------------------
+  # Shared keymaster
+  # ---------------------------------------------------
   keymaster:
     image: zookeeper:latest
     restart: always
 
+  #---------------------------------------------------
+  # Shared PostgreSQL
+  # ---------------------------------------------------
   db:
-    image: postgres:latest
-    restart: always
+    image: postgres:16-alpine
+    container_name: ilm-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: syncope
-      POSTGRES_USER: syncope
-      POSTGRES_PASSWORD: syncope
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
 
+  #---------------------------------------------------
+  # Shared keycloak
+  # ---------------------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3
+    container_name: keycloak
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+    command:
+      - start-dev
+
+  #---------------------------------------------------
+  # Shared syncope
+  # ---------------------------------------------------
   syncope:
     image: apache/syncope:4.1.0
     depends_on:
@@ -67,3 +106,77 @@ services:
       SERVICE_DISCOVERY_ADDRESS: http://syncope-enduser:8080/syncope-enduser/
       ANONYMOUS_USER: anonymous
       ANONYMOUS_KEY: anonymousKey
+
+  # ---------------------------------------------------
+  # LDAP
+  # ---------------------------------------------------
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: openldap
+
+    restart: unless-stopped
+
+    environment:
+      LDAP_ORGANISATION: ILM Platform
+      LDAP_DOMAIN: example.org
+      LDAP_ADMIN_PASSWORD: admin
+
+    ports:
+      - "389:389"
+      - "636:636"
+
+    volumes:
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+
+
+  # ---------------------------------------------------
+  # phpLDAPadmin
+  # ---------------------------------------------------
+  phpldapadmin:
+    image: osixia/phpldapadmin:0.9.0
+    container_name: phpldapadmin
+
+    restart: unless-stopped
+
+    depends_on:
+      - openldap
+
+    ports:
+      - "6443:443"
+
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: openldap
+
+
+  # ---------------------------------------------------
+  # Mailpit
+  # ---------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+
+    restart: unless-stopped
+
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+
+  # ---------------------------------------------------
+  # Adminer
+  # ---------------------------------------------------
+  adminer:
+    image: adminer
+    container_name: adminer
+
+    restart: unless-stopped
+
+    ports:
+      - "8081:8080"
+
+
+volumes:
+  postgres_data:
+  ldap_data:
+  ldap_config:
