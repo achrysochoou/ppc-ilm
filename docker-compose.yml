@@ -1,0 +1,69 @@
+services:
+  keymaster:
+    image: zookeeper:latest
+    restart: always
+
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: syncope
+      POSTGRES_USER: syncope
+      POSTGRES_PASSWORD: syncope
+
+  syncope:
+    image: apache/syncope:4.1.0
+    depends_on:
+      - db
+      - keymaster
+    ports:
+      - "18080:8080"
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,postgresql
+      DB_URL: jdbc:postgresql://db:5432/syncope?stringtype=unspecified
+      DB_USER: syncope
+      DB_PASSWORD: syncope
+      DB_POOL_MAX: "20"
+      DB_POOL_MIN: "5"
+      OPENJPA_REMOTE_COMMIT: sjvm
+      KEYMASTER_ADDRESS: keymaster:2181
+      KEYMASTER_USERNAME: ""
+      KEYMASTER_PASSWORD: ""
+      SERVICE_DISCOVERY_ADDRESS: http://syncope:8080/syncope/rest/
+      ANONYMOUS_USER: anonymous
+      ANONYMOUS_KEY: anonymousKey
+
+  syncope-console:
+    image: apache/syncope-console:4.1.0
+    depends_on:
+      - syncope
+      - keymaster
+    ports:
+      - "28080:8080"
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      KEYMASTER_ADDRESS: keymaster:2181
+      KEYMASTER_USERNAME: ""
+      KEYMASTER_PASSWORD: ""
+      SERVICE_DISCOVERY_ADDRESS: http://syncope-console:8080/syncope-console/
+      ANONYMOUS_USER: anonymous
+      ANONYMOUS_KEY: anonymousKey
+
+  syncope-enduser:
+    image: apache/syncope-enduser:4.1.0
+    depends_on:
+      - syncope
+      - keymaster
+    ports:
+      - "38080:8080"
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      KEYMASTER_ADDRESS: keymaster:2181
+      KEYMASTER_USERNAME: ""
+      KEYMASTER_PASSWORD: ""
+      SERVICE_DISCOVERY_ADDRESS: http://syncope-enduser:8080/syncope-enduser/
+      ANONYMOUS_USER: anonymous
+      ANONYMOUS_KEY: anonymousKey
