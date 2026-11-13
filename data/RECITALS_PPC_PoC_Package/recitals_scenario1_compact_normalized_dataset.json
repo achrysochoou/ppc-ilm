@@ -1,0 +1,735 @@
+{
+  "schema_version": "1.2.0",
+  "dataset_id": "recitals-ppc-scenario1-compact-v1.2",
+  "dataset_type": "normalized_identity_lifecycle_cases",
+  "processing_profile": "evaluation",
+  "synthetic": true,
+  "generated_at": "2026-07-22T14:00:00Z",
+  "purpose": "Compact direct input for testing the light and Extended Scenario 1 identity lifecycle workflows for PPC employees and external collaborators.",
+  "delivery": {
+    "method": "POST",
+    "proposed_endpoint": "/api/v1/identity-lifecycle/cases/batch",
+    "content_type": "application/json",
+    "idempotency_field": "batch_id",
+    "recommended_batch_size": 50
+  },
+  "batch_id": "s1-compact-20260722-003",
+  "normalization": {
+    "correlation_status": "completed_upstream",
+    "primary_identity_key": "subject.person_id",
+    "secondary_identity_keys": [
+      "subject.employee_id",
+      "subject.entra_object_id",
+      "subject.ad_sid",
+      "subject.upn"
+    ],
+    "timestamps": "ISO-8601 UTC",
+    "event_model": "one item represents one correlated lifecycle case"
+  },
+  "workflow_profile": {
+    "input_mode": "synthetic_dataset_direct",
+    "adapter_in_pilot": false,
+    "extended_component_sequence": [
+      "identity_lifecycle_manager",
+      "compliance_manager",
+      "cyber_threat_detector",
+      "explainer",
+      "reporting_engine"
+    ],
+    "security_exception_boundary": "recommendation_and_human_review_only_no_automatic_remediation"
+  },
+  "reference_data": {
+    "systems": [
+      {"id": "ppc_hrms", "role": "authoritative_employee_source"},
+      {"id": "ppc_vendor_portal", "role": "authoritative_contractor_source"},
+      {"id": "servicenow", "role": "request_approval_and_workflow"},
+      {"id": "microsoft_entra_id", "role": "cloud_identity_and_access_target"},
+      {"id": "active_directory", "role": "on_prem_identity_and_access_target"},
+      {"id": "sap_s4", "role": "business_application_target"},
+      {"id": "grafana", "role": "observability_application_target"},
+      {"id": "microsoft_sentinel", "role": "security_evidence_and_monitoring"},
+      {"id": "microsoft_defender", "role": "identity_and_device_risk_evidence"}
+    ],
+    "access_profiles": [
+      {
+        "id": "AP-CLOUD-ENGINEER",
+        "business_role": "Cloud Platform Engineer",
+        "conditions": {"department": "Cloud Operations", "employment_type": "employee"},
+        "birthright_entitlements": [
+          "entra:group:PPC-Cloud-Engineering",
+          "entra:group:PPC-Azure-Readers",
+          "grafana:role:Viewer"
+        ],
+        "privileged_entitlements": ["azure:role:Contributor:pim_eligible"]
+      },
+      {
+        "id": "AP-FINANCE-ANALYST",
+        "business_role": "Finance Analyst",
+        "conditions": {"department": "Finance", "employment_type": "employee"},
+        "birthright_entitlements": [
+          "entra:group:PPC-Finance",
+          "sap:role:FI_DISPLAY"
+        ],
+        "privileged_entitlements": []
+      },
+      {
+        "id": "AP-OBS-CONTRACTOR",
+        "business_role": "Observability Consultant",
+        "conditions": {"employment_type": "contractor", "sponsor_required": true},
+        "birthright_entitlements": [
+          "entra:group:PPC-External-Collaborators",
+          "grafana:role:Viewer"
+        ],
+        "privileged_entitlements": []
+      }
+    ],
+    "policies": [
+      {
+        "id": "POL-JML-001",
+        "name": "Authoritative lifecycle source",
+        "rule": "Joiner, mover and leaver instructions must originate from HRMS or the vendor portal."
+      },
+      {
+        "id": "POL-EXT-001",
+        "name": "External collaborator constraints",
+        "rule": "Contractors require a PPC sponsor and access expiration no later than the contract end date."
+      },
+      {
+        "id": "POL-PAM-001",
+        "name": "Privileged access",
+        "rule": "Production privileged access must be eligible and time-bound through PIM; no permanent direct assignment."
+      },
+      {
+        "id": "POL-SOD-001",
+        "name": "Finance segregation of duties",
+        "rule": "SAP payment creation and payment approval roles cannot be assigned to the same identity."
+      },
+      {
+        "id": "POL-LEAVER-001",
+        "name": "Leaver revocation",
+        "rule": "Disable sign-in, revoke sessions and remove access within four hours of termination."
+      },
+      {
+        "id": "POL-DATA-001",
+        "name": "Mandatory identity data",
+        "rule": "Provisioning must not start when mandatory identity, manager, sponsor or effective-date fields are missing."
+      },
+      {
+        "id": "POL-MATCH-001",
+        "name": "Identity uniqueness",
+        "rule": "Potential duplicate identities must be reconciled or sent for human review before provisioning."
+      }
+    ]
+  },
+  "items": [
+    {
+      "case_id": "S1-JOINER-001",
+      "case_type": "joiner",
+      "scenario_tier": ["light", "extended"],
+      "received_at": "2026-08-01T06:00:00Z",
+      "effective_at": "2026-08-01T07:00:00Z",
+      "authoritative_event": {
+        "source": "ppc_hrms",
+        "source_event_id": "HR-2026-10042",
+        "event_type": "employee_hired",
+        "status": "active"
+      },
+      "subject": {
+        "person_id": "PER-10042",
+        "employee_id": "EMP-10042",
+        "upn": "alex.marinou@example.test",
+        "employment_type": "employee",
+        "department": "Cloud Operations",
+        "job_role": "Cloud Platform Engineer",
+        "manager_person_id": "PER-00210",
+        "data_classification": "personal_confidential"
+      },
+      "access_request": {
+        "request_id": "REQ-10042",
+        "access_profile_id": "AP-CLOUD-ENGINEER",
+        "reason": "Birthright access for new role",
+        "approval": {"required": true, "status": "approved", "approver_role": "manager", "decided_at": "2026-07-30T10:15:00Z"}
+      },
+      "current_access": [],
+      "policy_evaluation": {
+        "policy_ids": ["POL-JML-001", "POL-PAM-001"],
+        "result": "allow",
+        "violations": []
+      },
+      "requested_changes": [
+        {"target": "microsoft_entra_id", "operation": "create_user", "entitlement": null},
+        {"target": "microsoft_entra_id", "operation": "add", "entitlement": "entra:group:PPC-Cloud-Engineering"},
+        {"target": "microsoft_entra_id", "operation": "add", "entitlement": "entra:group:PPC-Azure-Readers"},
+        {"target": "grafana", "operation": "add", "entitlement": "grafana:role:Viewer"}
+      ],
+      "execution_evidence": [
+        {"source": "microsoft_entra_id", "event_id": "ENTRA-AUD-10042-A", "operation": "create_user", "result": "success", "observed_at": "2026-08-01T07:02:00Z"},
+        {"source": "microsoft_entra_id", "event_id": "ENTRA-AUD-10042-B", "operation": "add_group_memberships", "result": "success", "observed_at": "2026-08-01T07:03:00Z"},
+        {"source": "grafana", "event_id": "GRAF-10042", "operation": "assign_role", "result": "success", "observed_at": "2026-08-01T07:04:00Z"}
+      ],
+      "security_context": {"sentinel_incidents": [], "defender_risk": "none"},
+      "ground_truth": {"outcome": "success", "label": "valid_joiner"},
+      "expected_recitals": {"decision": "approve_and_provision", "final_state": "completed", "severity": "informational"}
+    },
+    {
+      "case_id": "S1-JOINER-002",
+      "case_type": "joiner",
+      "scenario_tier": ["light", "extended"],
+      "received_at": "2026-08-02T08:00:00Z",
+      "effective_at": "2026-08-04T07:00:00Z",
+      "authoritative_event": {
+        "source": "ppc_vendor_portal",
+        "source_event_id": "VEN-2026-5501",
+        "event_type": "contractor_engaged",
+        "status": "approved"
+      },
+      "subject": {
+        "person_id": "PER-EXT-5501",
+        "external_id": "EXT-5501",
+        "upn": "maria.rossi.ext@example.test",
+        "employment_type": "contractor",
+        "company": "Example Consulting Ltd",
+        "department": "Cloud Operations",
+        "job_role": "Observability Consultant",
+        "sponsor_person_id": "PER-00210",
+        "contract_end": "2026-12-31T23:59:59Z",
+        "data_classification": "personal_confidential"
+      },
+      "access_request": {
+        "request_id": "REQ-EXT-5501",
+        "access_profile_id": "AP-OBS-CONTRACTOR",
+        "reason": "Time-bound project access",
+        "requested_expiration": "2026-12-31T23:59:59Z",
+        "approval": {"required": true, "status": "approved", "approver_role": "ppc_sponsor", "decided_at": "2026-08-02T09:00:00Z"}
+      },
+      "current_access": [],
+      "policy_evaluation": {
+        "policy_ids": ["POL-JML-001", "POL-EXT-001"],
+        "result": "allow_with_expiration",
+        "violations": []
+      },
+      "requested_changes": [
+        {"target": "microsoft_entra_id", "operation": "invite_guest", "entitlement": null, "expires_at": "2026-12-31T23:59:59Z"},
+        {"target": "microsoft_entra_id", "operation": "add", "entitlement": "entra:group:PPC-External-Collaborators", "expires_at": "2026-12-31T23:59:59Z"},
+        {"target": "grafana", "operation": "add", "entitlement": "grafana:role:Viewer", "expires_at": "2026-12-31T23:59:59Z"}
+      ],
+      "execution_evidence": [
+        {"source": "microsoft_entra_id", "event_id": "ENTRA-AUD-5501", "operation": "invite_guest_and_add_group", "result": "success", "observed_at": "2026-08-04T07:02:00Z"},
+        {"source": "grafana", "event_id": "GRAF-5501", "operation": "assign_role", "result": "success", "observed_at": "2026-08-04T07:04:00Z"}
+      ],
+      "security_context": {"sentinel_incidents": [], "defender_risk": "none"},
+      "ground_truth": {"outcome": "success", "label": "valid_time_bound_contractor"},
+      "expected_recitals": {"decision": "approve_and_provision", "final_state": "completed", "severity": "informational"}
+    },
+    {
+      "case_id": "S1-MOVER-001",
+      "case_type": "mover",
+      "scenario_tier": ["light", "extended"],
+      "received_at": "2026-08-10T06:00:00Z",
+      "effective_at": "2026-08-11T07:00:00Z",
+      "authoritative_event": {
+        "source": "ppc_hrms",
+        "source_event_id": "HR-MOVE-22017",
+        "event_type": "employee_role_changed",
+        "status": "active"
+      },
+      "subject": {
+        "person_id": "PER-22017",
+        "employee_id": "EMP-22017",
+        "entra_object_id": "ENTRA-22017",
+        "ad_sid": "S-1-5-21-1000-22017",
+        "upn": "nikos.papadopoulos@example.test",
+        "employment_type": "employee",
+        "old_department": "Finance",
+        "department": "Cloud Operations",
+        "old_job_role": "Finance Analyst",
+        "job_role": "Cloud Platform Engineer",
+        "manager_person_id": "PER-00210",
+        "data_classification": "personal_confidential"
+      },
+      "access_request": {
+        "request_id": "REQ-MOVE-22017",
+        "access_profile_id": "AP-CLOUD-ENGINEER",
+        "reason": "Department and job-role change",
+        "approval": {"required": true, "status": "approved", "approver_role": "new_manager", "decided_at": "2026-08-10T11:00:00Z"}
+      },
+      "current_access": [
+        "entra:group:PPC-Finance",
+        "sap:role:FI_DISPLAY"
+      ],
+      "policy_evaluation": {
+        "policy_ids": ["POL-JML-001", "POL-PAM-001"],
+        "result": "allow_after_remove_old_access",
+        "violations": []
+      },
+      "requested_changes": [
+        {"target": "microsoft_entra_id", "operation": "remove", "entitlement": "entra:group:PPC-Finance"},
+        {"target": "sap_s4", "operation": "remove", "entitlement": "sap:role:FI_DISPLAY"},
+        {"target": "microsoft_entra_id", "operation": "add", "entitlement": "entra:group:PPC-Cloud-Engineering"},
+        {"target": "microsoft_entra_id", "operation": "add", "entitlement": "entra:group:PPC-Azure-Readers"},
+        {"target": "grafana", "operation": "add", "entitlement": "grafana:role:Viewer"}
+      ],
+      "execution_evidence": [
+        {"source": "microsoft_entra_id", "event_id": "ENTRA-MOVE-22017", "operation": "replace_group_access", "result": "success", "observed_at": "2026-08-11T07:05:00Z"},
+        {"source": "sap_s4", "event_id": "SAP-REM-22017", "operation": "remove_role", "result": "success", "observed_at": "2026-08-11T07:08:00Z"},
+        {"source": "grafana", "event_id": "GRAF-ADD-22017", "operation": "assign_role", "result": "success", "observed_at": "2026-08-11T07:09:00Z"}
+      ],
+      "security_context": {"sentinel_incidents": [], "defender_risk": "none"},
+      "ground_truth": {"outcome": "success", "label": "valid_mover_old_access_removed"},
+      "expected_recitals": {"decision": "approve_and_replace_access", "final_state": "completed", "severity": "informational"}
+    },
+    {
+      "case_id": "S1-REQUEST-001",
+      "case_type": "access_request",
+      "scenario_tier": ["extended"],
+      "received_at": "2026-08-12T09:00:00Z",
+      "effective_at": "2026-08-12T10:00:00Z",
+      "authoritative_event": {
+        "source": "servicenow",
+        "source_event_id": "RITM0098701",
+        "event_type": "access_requested",
+        "status": "approved"
+      },
+      "subject": {
+        "person_id": "PER-31004",
+        "employee_id": "EMP-31004",
+        "entra_object_id": "ENTRA-31004",
+        "upn": "eleni.kosta@example.test",
+        "employment_type": "employee",
+        "department": "Finance",
+        "job_role": "Payments Clerk",
+        "manager_person_id": "PER-00400",
+        "data_classification": "personal_confidential"
+      },
+      "access_request": {
+        "request_id": "RITM0098701",
+        "requested_entitlements": ["sap:role:PAYMENT_APPROVER"],
+        "reason": "Temporary cover for team member",
+        "requested_expiration": "2026-08-31T23:59:59Z",
+        "approval": {"required": true, "status": "approved", "approver_role": "manager", "decided_at": "2026-08-12T09:30:00Z"}
+      },
+      "current_access": ["sap:role:PAYMENT_CREATOR"],
+      "policy_evaluation": {
+        "policy_ids": ["POL-SOD-001"],
+        "result": "deny",
+        "violations": ["PAYMENT_CREATOR and PAYMENT_APPROVER are a prohibited combination"]
+      },
+      "requested_changes": [
+        {"target": "sap_s4", "operation": "add", "entitlement": "sap:role:PAYMENT_APPROVER", "expires_at": "2026-08-31T23:59:59Z"}
+      ],
+      "execution_evidence": [],
+      "security_context": {"sentinel_incidents": [], "defender_risk": "none"},
+      "ground_truth": {"outcome": "blocked", "label": "segregation_of_duties_violation"},
+      "expected_recitals": {"decision": "deny_and_notify", "final_state": "policy_blocked", "severity": "high"}
+    },
+    {
+      "case_id": "S1-LEAVER-001",
+      "case_type": "leaver",
+      "scenario_tier": ["light", "extended"],
+      "received_at": "2026-08-15T05:30:00Z",
+      "effective_at": "2026-08-15T08:00:00Z",
+      "authoritative_event": {
+        "source": "ppc_hrms",
+        "source_event_id": "HR-TERM-44008",
+        "event_type": "employee_terminated",
+        "status": "terminated"
+      },
+      "subject": {
+        "person_id": "PER-44008",
+        "employee_id": "EMP-44008",
+        "entra_object_id": "ENTRA-44008",
+        "ad_sid": "S-1-5-21-1000-44008",
+        "upn": "giorgos.leventis@example.test",
+        "employment_type": "employee",
+        "department": "Cloud Operations",
+        "job_role": "Cloud Platform Engineer",
+        "manager_person_id": "PER-00210",
+        "data_classification": "personal_confidential"
+      },
+      "access_request": null,
+      "current_access": [
+        "entra:group:PPC-Cloud-Engineering",
+        "entra:group:PPC-Azure-Readers",
+        "azure:role:Contributor:pim_eligible",
+        "ad:group:PPC-VPN-Users",
+        "grafana:role:Editor"
+      ],
+      "policy_evaluation": {
+        "policy_ids": ["POL-JML-001", "POL-LEAVER-001"],
+        "result": "mandatory_revoke",
+        "violations": []
+      },
+      "requested_changes": [
+        {"target": "microsoft_entra_id", "operation": "disable_user", "entitlement": null},
+        {"target": "microsoft_entra_id", "operation": "revoke_sessions", "entitlement": null},
+        {"target": "microsoft_entra_id", "operation": "remove_all_access", "entitlement": null},
+        {"target": "active_directory", "operation": "disable_user_and_remove_groups", "entitlement": null},
+        {"target": "grafana", "operation": "disable_user", "entitlement": null}
+      ],
+      "execution_evidence": [
+        {"source": "microsoft_entra_id", "event_id": "ENTRA-TERM-44008", "operation": "disable_revoke_remove", "result": "success", "observed_at": "2026-08-15T08:10:00Z"},
+        {"source": "active_directory", "event_id": "AD-4725-44008", "operation": "disable_user", "result": "success", "observed_at": "2026-08-15T08:12:00Z"},
+        {"source": "grafana", "event_id": "GRAF-DIS-44008", "operation": "disable_user", "result": "success", "observed_at": "2026-08-15T08:15:00Z"}
+      ],
+      "security_context": {"sentinel_incidents": [], "defender_risk": "none"},
+      "ground_truth": {"outcome": "success", "label": "valid_leaver_within_sla"},
+      "expected_recitals": {"decision": "revoke_all_access", "final_state": "completed", "severity": "extended"}
+    },
+    {
+      "case_id": "S1-PROVISION-001",
+      "case_type": "provisioning_failure",
+      "scenario_tier": ["light", "extended"],
+      "received_at": "2026-08-18T06:00:00Z",
+      "effective_at": "2026-08-18T07:00:00Z",
+      "authoritative_event": {
+        "source": "ppc_hrms",
+        "source_event_id": "HR-2026-66021",
+        "event_type": "employee_hired",
+        "status": "active"
+      },
+      "subject": {
+        "person_id": "PER-66021",
+        "employee_id": "EMP-66021",
+        "upn": "anna.michael@example.test",
+        "employment_type": "employee",
+        "department": "Finance",
+        "job_role": "Finance Analyst",
+        "manager_person_id": "PER-00400",
+        "data_classification": "personal_confidential"
+      },
+      "access_request": {
+        "request_id": "REQ-66021",
+        "access_profile_id": "AP-FINANCE-ANALYST",
+        "reason": "Birthright access for new role",
+        "approval": {"required": true, "status": "approved", "approver_role": "manager", "decided_at": "2026-08-17T12:00:00Z"}
+      },
+      "current_access": [],
+      "policy_evaluation": {
+        "policy_ids": ["POL-JML-001"],
+        "result": "allow",
+        "violations": []
+      },
+      "requested_changes": [
+        {"target": "microsoft_entra_id", "operation": "create_user_and_add_group", "entitlement": "entra:group:PPC-Finance"},
+        {"target": "sap_s4", "operation": "add", "entitlement": "sap:role:FI_DISPLAY"}
+      ],
+      "execution_evidence": [
+        {"source": "microsoft_entra_id", "event_id": "ENTRA-66021", "operation": "create_user_and_add_group", "result": "success", "observed_at": "2026-08-18T07:02:00Z"},
+        {"source": "sap_s4", "event_id": "SAP-66021", "operation": "assign_role", "result": "failed", "error_code": "TARGET_TIMEOUT", "observed_at": "2026-08-18T07:04:00Z"},
+        {"source": "microsoft_entra_id", "event_id": "ENTRA-RB-66021", "operation": "rollback_disable_user", "result": "success", "observed_at": "2026-08-18T07:08:00Z"}
+      ],
+      "security_context": {"sentinel_incidents": [], "defender_risk": "none"},
+      "ground_truth": {"outcome": "rolled_back", "label": "partial_provisioning_failure"},
+      "expected_recitals": {"decision": "rollback_and_raise_work_item", "final_state": "failed_recoverable", "severity": "extended"}
+    },
+    {
+      "case_id": "S1-REVIEW-001",
+      "case_type": "access_review",
+      "scenario_tier": ["extended"],
+      "received_at": "2026-09-01T06:00:00Z",
+      "effective_at": "2026-09-05T17:00:00Z",
+      "authoritative_event": {
+        "source": "servicenow",
+        "source_event_id": "AR-Q3-2026-001",
+        "event_type": "quarterly_access_review",
+        "status": "decision_recorded"
+      },
+      "subject": {
+        "person_id": "PER-77510",
+        "employee_id": "EMP-77510",
+        "entra_object_id": "ENTRA-77510",
+        "upn": "petros.vlachos@example.test",
+        "employment_type": "employee",
+        "department": "Cloud Operations",
+        "job_role": "Service Manager",
+        "manager_person_id": "PER-00210",
+        "data_classification": "personal_confidential"
+      },
+      "access_request": {
+        "request_id": "AR-Q3-2026-001",
+        "reviewed_entitlements": ["azure:role:Contributor:pim_eligible"],
+        "reason": "Quarterly privileged-access recertification",
+        "approval": {"required": true, "status": "revoke", "approver_role": "resource_owner", "decided_at": "2026-09-04T14:00:00Z", "justification": "Not activated or used in 120 days"}
+      },
+      "current_access": ["azure:role:Contributor:pim_eligible"],
+      "policy_evaluation": {
+        "policy_ids": ["POL-PAM-001"],
+        "result": "revoke_unused_access",
+        "violations": []
+      },
+      "requested_changes": [
+        {"target": "microsoft_entra_id", "operation": "remove_pim_eligibility", "entitlement": "azure:role:Contributor:pim_eligible"}
+      ],
+      "execution_evidence": [
+        {"source": "microsoft_entra_id", "event_id": "PIM-REV-77510", "operation": "remove_pim_eligibility", "result": "success", "observed_at": "2026-09-05T09:00:00Z"}
+      ],
+      "security_context": {
+        "last_successful_sign_in": "2026-08-30T07:45:00Z",
+        "entitlement_last_used": "2026-05-01T10:00:00Z",
+        "sentinel_incidents": [],
+        "defender_risk": "none"
+      },
+      "ground_truth": {"outcome": "success", "label": "valid_recertification_revoke"},
+      "expected_recitals": {"decision": "revoke_reviewed_access", "final_state": "completed", "severity": "low"}
+    },
+    {
+      "case_id": "S1-SECURITY-001",
+      "case_type": "unauthorized_lifecycle_change",
+      "scenario_tier": ["extended"],
+      "received_at": "2026-09-08T02:20:00Z",
+      "effective_at": "2026-09-08T02:18:00Z",
+      "authoritative_event": {
+        "source": "microsoft_entra_id",
+        "source_event_id": "AUD-ROLE-90071",
+        "event_type": "unauthorized_privilege_change_observed",
+        "status": "active"
+      },
+      "subject": {
+        "person_id": "PER-EXT-88011",
+        "external_id": "EXT-88011",
+        "entra_object_id": "ENTRA-EXT-88011",
+        "upn": "external.admin@example.test",
+        "employment_type": "contractor",
+        "company": "Example Operations SA",
+        "department": "IT Operations",
+        "job_role": "Support Consultant",
+        "sponsor_person_id": "PER-00210",
+        "contract_end": "2026-10-31T23:59:59Z",
+        "data_classification": "personal_confidential"
+      },
+      "actor": {
+        "type": "user",
+        "person_id": "PER-99881",
+        "entra_object_id": "ENTRA-99881",
+        "upn": "compromised.operator@example.test"
+      },
+      "access_request": null,
+      "current_access": [
+        "entra:group:PPC-External-Collaborators",
+        "grafana:role:Viewer",
+        "entra:role:Global Administrator"
+      ],
+      "policy_evaluation": {
+        "policy_ids": ["POL-JML-001", "POL-EXT-001", "POL-PAM-001"],
+        "result": "security_exception_human_review",
+        "violations": [
+          "No authoritative HR, vendor or ServiceNow request exists",
+          "Contractor received prohibited permanent privileged role",
+          "Role assignment bypassed PIM"
+        ]
+      },
+      "requested_changes": [],
+      "execution_evidence": [
+        {"source": "microsoft_entra_id", "event_id": "AUD-ROLE-90071", "operation": "add_directory_role", "result": "success", "observed_at": "2026-09-08T02:18:00Z"},
+        {"source": "microsoft_entra_id", "event_id": "SIGNIN-90071", "operation": "interactive_sign_in", "result": "success", "source_ip": "203.0.113.70", "country": "RU", "mfa_result": "not_satisfied", "observed_at": "2026-09-08T02:12:00Z"}
+      ],
+      "security_context": {
+        "sentinel_incidents": [
+          {"incident_id": "INC-2026-90071", "severity": "high", "title": "Suspicious permanent privileged-role assignment", "status": "active"}
+        ],
+        "defender_risk": "high",
+        "defender_alerts": [
+          {"alert_id": "MDE-90071", "type": "compromised_device", "device_id": "DEV-99881", "severity": "high"}
+        ]
+      },
+      "ground_truth": {"outcome": "malicious", "label": "unauthorized_privilege_escalation"},
+      "expected_recitals": {
+        "decision": "raise_security_exception_for_human_review",
+        "final_state": "awaiting_ppc_soc_iam_review",
+        "severity": "critical",
+        "recommended_actions": ["revoke_sessions", "remove_newly_assigned_role", "temporarily_disable_account_if_ppc_approves"],
+        "automatic_execution": false
+      }
+    },
+    {
+      "case_id": "S1-JOINER-003",
+      "case_type": "joiner_validation_failure",
+      "scenario_tier": ["light", "extended"],
+      "received_at": "2026-09-10T06:00:00Z",
+      "effective_at": "2026-09-11T07:00:00Z",
+      "authoritative_event": {
+        "source": "ppc_hrms",
+        "source_event_id": "HR-2026-77101",
+        "event_type": "employee_hired",
+        "status": "incomplete"
+      },
+      "subject": {
+        "person_id": "PER-77101",
+        "employee_id": "EMP-77101",
+        "upn": "nikos.papadopoulos@example.test",
+        "employment_type": "employee",
+        "department": "Cloud Operations",
+        "job_role": "Cloud Platform Engineer",
+        "manager_person_id": null,
+        "data_classification": "personal_confidential"
+      },
+      "access_request": {
+        "request_id": "REQ-77101",
+        "access_profile_id": "AP-CLOUD-ENGINEER",
+        "reason": "Birthright access for new role",
+        "approval": {"required": true, "status": "not_started", "approver_role": "manager", "decided_at": null}
+      },
+      "current_access": [],
+      "policy_evaluation": {
+        "policy_ids": ["POL-JML-001", "POL-DATA-001"],
+        "result": "reject_incomplete",
+        "violations": ["manager_person_id is mandatory for employee approval routing"]
+      },
+      "requested_changes": [],
+      "execution_evidence": [],
+      "security_context": {"sentinel_incidents": [], "defender_risk": "none"},
+      "ground_truth": {"outcome": "rejected", "label": "missing_mandatory_joiner_data"},
+      "expected_recitals": {"decision": "reject_and_request_missing_data", "final_state": "input_invalid", "severity": "low"}
+    },
+    {
+      "case_id": "S1-MATCH-001",
+      "case_type": "identity_reconciliation",
+      "scenario_tier": ["extended"],
+      "received_at": "2026-09-11T08:00:00Z",
+      "effective_at": "2026-09-12T07:00:00Z",
+      "authoritative_event": {
+        "source": "ppc_hrms",
+        "source_event_id": "HR-2026-88220",
+        "event_type": "employee_hired",
+        "status": "active"
+      },
+      "subject": {
+        "person_id": "PER-88220",
+        "employee_id": "EMP-88220",
+        "upn": "sofia.georgiou@example.test",
+        "employment_type": "employee",
+        "department": "Finance",
+        "job_role": "Finance Analyst",
+        "manager_person_id": "PER-00400",
+        "data_classification": "personal_confidential"
+      },
+      "identity_match_candidates": [
+        {
+          "source": "microsoft_entra_id",
+          "object_id": "ENTRA-OLD-88220",
+          "upn": "s.georgiou@example.test",
+          "match_basis": ["legal_name", "personal_email_hash"],
+          "match_confidence": 0.78,
+          "account_state": "enabled"
+        }
+      ],
+      "access_request": {
+        "request_id": "REQ-88220",
+        "access_profile_id": "AP-FINANCE-ANALYST",
+        "reason": "Birthright access for new role",
+        "approval": {"required": true, "status": "approved", "approver_role": "manager", "decided_at": "2026-09-11T09:00:00Z"}
+      },
+      "current_access": [],
+      "policy_evaluation": {
+        "policy_ids": ["POL-JML-001", "POL-MATCH-001"],
+        "result": "hold_for_reconciliation",
+        "violations": ["Possible existing Entra identity exceeds duplicate-review threshold but is below auto-merge confidence"]
+      },
+      "requested_changes": [],
+      "execution_evidence": [],
+      "security_context": {"sentinel_incidents": [], "defender_risk": "none"},
+      "ground_truth": {"outcome": "manual_review", "label": "possible_duplicate_identity"},
+      "expected_recitals": {"decision": "hold_and_request_identity_review", "final_state": "awaiting_human_review", "severity": "extended"}
+    },
+    {
+      "case_id": "S1-REQUEST-002",
+      "case_type": "privileged_access_request",
+      "scenario_tier": ["extended"],
+      "received_at": "2026-09-12T09:00:00Z",
+      "effective_at": "2026-09-12T10:00:00Z",
+      "authoritative_event": {
+        "source": "servicenow",
+        "source_event_id": "RITM0098812",
+        "event_type": "privileged_access_requested",
+        "status": "approved"
+      },
+      "subject": {
+        "person_id": "PER-22510",
+        "employee_id": "EMP-22510",
+        "entra_object_id": "ENTRA-22510",
+        "upn": "dimitris.kalogeris@example.test",
+        "employment_type": "employee",
+        "department": "Cloud Operations",
+        "job_role": "Cloud Platform Engineer",
+        "manager_person_id": "PER-00210",
+        "data_classification": "personal_confidential"
+      },
+      "access_request": {
+        "request_id": "RITM0098812",
+        "requested_entitlements": ["azure:role:Contributor:pim_eligible"],
+        "reason": "Production support rotation",
+        "requested_expiration": "2026-12-12T23:59:59Z",
+        "approval": {"required": true, "status": "approved", "approver_role": "resource_owner", "decided_at": "2026-09-12T09:30:00Z"}
+      },
+      "current_access": ["entra:group:PPC-Cloud-Engineering", "entra:group:PPC-Azure-Readers"],
+      "policy_evaluation": {
+        "policy_ids": ["POL-PAM-001"],
+        "result": "allow_time_bound_pim_eligibility",
+        "violations": []
+      },
+      "requested_changes": [
+        {"target": "microsoft_entra_id", "operation": "add_pim_eligibility", "entitlement": "azure:role:Contributor:pim_eligible", "expires_at": "2026-12-12T23:59:59Z"}
+      ],
+      "execution_evidence": [
+        {"source": "microsoft_entra_id", "event_id": "PIM-ELIG-22510", "operation": "add_pim_eligibility", "result": "success", "observed_at": "2026-09-12T10:02:00Z"}
+      ],
+      "security_context": {"sentinel_incidents": [], "defender_risk": "none"},
+      "ground_truth": {"outcome": "success", "label": "approved_time_bound_privileged_access"},
+      "expected_recitals": {"decision": "approve_and_provision_pim_eligibility", "final_state": "completed", "severity": "informational"}
+    },
+    {
+      "case_id": "S1-LEAVER-002",
+      "case_type": "contractor_expiration",
+      "scenario_tier": ["light", "extended"],
+      "received_at": "2026-12-31T22:00:00Z",
+      "effective_at": "2026-12-31T23:59:59Z",
+      "authoritative_event": {
+        "source": "ppc_vendor_portal",
+        "source_event_id": "VEN-EXP-5501",
+        "event_type": "contract_expired",
+        "status": "expired"
+      },
+      "subject": {
+        "person_id": "PER-EXT-5501",
+        "external_id": "EXT-5501",
+        "entra_object_id": "ENTRA-EXT-5501",
+        "upn": "maria.rossi.ext@example.test",
+        "employment_type": "contractor",
+        "company": "Example Consulting Ltd",
+        "department": "Cloud Operations",
+        "job_role": "Observability Consultant",
+        "sponsor_person_id": "PER-00210",
+        "contract_end": "2026-12-31T23:59:59Z",
+        "data_classification": "personal_confidential"
+      },
+      "access_request": null,
+      "current_access": ["entra:group:PPC-External-Collaborators", "grafana:role:Viewer"],
+      "policy_evaluation": {
+        "policy_ids": ["POL-JML-001", "POL-EXT-001", "POL-LEAVER-001"],
+        "result": "mandatory_expire",
+        "violations": []
+      },
+      "requested_changes": [
+        {"target": "microsoft_entra_id", "operation": "disable_guest_and_remove_all_access", "entitlement": null},
+        {"target": "microsoft_entra_id", "operation": "revoke_sessions", "entitlement": null},
+        {"target": "grafana", "operation": "disable_user", "entitlement": null}
+      ],
+      "execution_evidence": [
+        {"source": "microsoft_entra_id", "event_id": "ENTRA-EXP-5501", "operation": "disable_guest_remove_access_revoke_sessions", "result": "success", "observed_at": "2027-01-01T00:03:00Z"},
+        {"source": "grafana", "event_id": "GRAF-EXP-5501", "operation": "disable_user", "result": "success", "observed_at": "2027-01-01T00:05:00Z"}
+      ],
+      "security_context": {"sentinel_incidents": [], "defender_risk": "none"},
+      "ground_truth": {"outcome": "success", "label": "contractor_access_expired_on_time"},
+      "expected_recitals": {"decision": "expire_and_revoke_all_access", "final_state": "completed", "severity": "extended"}
+    }
+  ],
+  "expected_batch_result": {
+    "accepted_cases": 12,
+    "rejected_cases": 0,
+    "coverage": {
+      "light": ["joiner", "contractor_joiner", "joiner_input_validation", "mover", "employee_leaver", "contractor_expiration", "provisioning_failure"],
+      "extended": ["all_light_cases", "access_request_sod", "approved_time_bound_pim", "access_review", "identity_reconciliation", "unauthorized_lifecycle_change_with_security_context_and_human_review"]
+    }
+  },
+  "production_usage_note": "Remove ground_truth, expected_recitals and expected_batch_result before sending real production cases to RECITALS. Replace synthetic identifiers with pseudonymous stable identifiers and enforce purpose-based field minimization."
+}

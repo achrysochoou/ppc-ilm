@@ -1,8 +1,0 @@
-CREATE USER keycloak WITH PASSWORD 'keycloak';
-CREATE DATABASE keycloak OWNER keycloak;
-
-CREATE USER syncope WITH PASSWORD 'syncope';
-CREATE DATABASE syncope OWNER syncope;
-
-GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
-GRANT ALL PRIVILEGES ON DATABASE syncope TO syncope;

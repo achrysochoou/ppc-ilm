@@ -1,0 +1,11 @@
+{
+  "name": "ppc-ilm-pilot",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env.local ilm/server.js",
+    "test": "node --test",
+    "pilot": "node scripts/run-pilot.js"
+  }
+}

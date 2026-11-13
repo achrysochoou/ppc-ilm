@@ -1,0 +1,480 @@
+{
+  "schema_version": "1.1.0",
+  "dataset_id": "recitals-ppc-scenario2-synthetic-v1.1",
+  "dataset_type": "correlated_identity_security_events",
+  "generated_at": "2026-07-22T14:00:00Z",
+  "synthetic": true,
+  "purpose": "RECITALS Scenario 2 direct-input detection, explanation, recommendation, and human-review testing",
+  "delivery": {
+    "endpoint": "/api/v1/security/correlated-events/batch",
+    "method": "POST",
+    "content_type": "application/json",
+    "recommended_batch_size": 100,
+    "idempotency_field": "batch_id"
+  },
+  "privacy": {
+    "contains_real_ppc_data": false,
+    "identity_mode": "pseudonymous_synthetic",
+    "direct_identifiers_allowed": false,
+    "free_text_allowlist_required": true
+  },
+  "batch_id": "batch-s2-20260721-0001",
+  "tenant": {
+    "tenant_ref": "tenant-ppc-synthetic-01",
+    "environment": "pilot",
+    "timezone": "Europe/Athens"
+  },
+  "correlation": {
+    "performed_by": "synthetic_dataset_preparation",
+    "window_minutes": 30,
+    "primary_keys": [
+      "subject.id",
+      "actor.id",
+      "source.ip",
+      "device.id",
+      "session.id",
+      "microsoft.correlation_id"
+    ],
+    "note": "Each item is an already-correlated synthetic bundle assembled from selected Entra ID and optional Sentinel, Defender or AD evidence. Microsoft Sentinel is not a RECITALS workflow or output step."
+  },
+  "workflow_profile": {
+    "input_mode": "synthetic_dataset_direct",
+    "adapter_in_pilot": false,
+    "component_sequence": ["log_collection", "cyber_threat_detector", "ctoar", "explainer"],
+    "human_consumer": "PPC_SOC_and_IAM",
+    "microsoft_sentinel_as_workflow_step": false,
+    "automatic_remediation": false
+  },
+  "reference_context": {
+    "critical_roles": [
+      "Global Administrator",
+      "Privileged Role Administrator",
+      "Security Administrator",
+      "Application Administrator"
+    ],
+    "critical_groups": [
+      "ENTRA-PROD-ADMINS",
+      "AD-DOMAIN-ADMINS",
+      "AZURE-SUBSCRIPTION-OWNERS"
+    ],
+    "trusted_countries": ["GR"],
+    "approved_change_window_utc": "06:00-18:00",
+    "break_glass_accounts": ["usr-breakglass-01"]
+  },
+  "identity_baselines": [
+    {
+      "identity_id": "usr-1001",
+      "identity_type": "employee",
+      "department": "Finance",
+      "normal_countries": ["GR"],
+      "normal_hours_utc": "06:00-17:00",
+      "normal_devices": ["dev-1001"],
+      "approved_roles": ["Reports Reader"],
+      "privileged_role_expected": false
+    },
+    {
+      "identity_id": "adm-2001",
+      "identity_type": "privileged_employee",
+      "department": "IAM Operations",
+      "normal_countries": ["GR"],
+      "normal_hours_utc": "05:00-18:00",
+      "normal_devices": ["paw-2001"],
+      "approved_roles": ["Privileged Role Administrator"],
+      "privileged_role_expected": true
+    },
+    {
+      "identity_id": "usr-1002",
+      "identity_type": "employee",
+      "department": "Customer Operations",
+      "normal_countries": ["GR"],
+      "normal_hours_utc": "06:00-18:00",
+      "normal_devices": ["dev-1002"],
+      "approved_roles": ["CRM User"],
+      "privileged_role_expected": false
+    }
+  ],
+  "items": [
+    {
+      "bundle_id": "s2-normal-001",
+      "category": "benign_privileged_access",
+      "scenario": "Approved PIM activation from a compliant privileged workstation",
+      "event_time_start": "2026-07-21T07:10:00Z",
+      "event_time_end": "2026-07-21T07:13:10Z",
+      "subject": {"id": "adm-2001", "type": "user", "upn_token": "u:adm-2001"},
+      "actor": {"id": "adm-2001", "type": "user"},
+      "correlated_events": [
+        {
+          "event_id": "evt-normal-001-a",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "SigninLogs",
+          "event_type": "interactive_sign_in",
+          "timestamp": "2026-07-21T07:10:00Z",
+          "outcome": "success",
+          "source": {"ip": "192.0.2.10", "country": "GR"},
+          "device": {"id": "paw-2001", "managed": true, "compliant": true},
+          "authentication": {"mfa": "satisfied", "conditional_access": "success", "risk_level": "none"},
+          "microsoft": {"correlation_id": "mscorr-normal-001"}
+        },
+        {
+          "event_id": "evt-normal-001-b",
+          "source_service": "Microsoft Entra ID PIM",
+          "source_table": "AuditLogs",
+          "event_type": "pim_role_activation",
+          "timestamp": "2026-07-21T07:13:10Z",
+          "outcome": "success",
+          "target": {"type": "directory_role", "name": "Privileged Role Administrator"},
+          "privilege": {"assignment_type": "eligible_activation", "duration_minutes": 60, "approval_id": "pim-approval-001", "justification_present": true},
+          "microsoft": {"correlation_id": "mscorr-normal-001"}
+        }
+      ],
+      "sentinel": {"alert_id": null, "incident_id": null, "existing_severity": "informational", "analytics_rule": "Approved PIM activation"},
+      "ground_truth": {"is_anomalous": false, "attack_type": "none", "label": "true_negative"},
+      "expected_recitals": {"decision": "allow_no_recommendation", "severity": "informational", "score_range": [0, 20], "remediation_recommendation": [], "human_review_required": false, "automatic_execution": false, "explanation_codes": ["APPROVED_PIM", "TRUSTED_DEVICE", "MFA_SATISFIED"]}
+    },
+    {
+      "bundle_id": "s2-privilege-001",
+      "category": "direct_role_escalation",
+      "scenario": "Risky administrator sign-in followed by direct Global Administrator assignment",
+      "event_time_start": "2026-07-21T00:41:03Z",
+      "event_time_end": "2026-07-21T00:44:32Z",
+      "subject": {"id": "usr-1001", "type": "user", "upn_token": "u:usr-1001"},
+      "actor": {"id": "adm-2001", "type": "user"},
+      "correlated_events": [
+        {
+          "event_id": "evt-priv-001-a",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "SigninLogs",
+          "event_type": "interactive_sign_in",
+          "timestamp": "2026-07-21T00:41:03Z",
+          "outcome": "success",
+          "source": {"ip": "198.51.100.44", "country": "NL", "anonymous_proxy": true},
+          "device": {"id": "dev-unknown-44", "managed": false, "compliant": false},
+          "authentication": {"mfa": "not_satisfied", "conditional_access": "not_applied", "risk_level": "high"},
+          "microsoft": {"correlation_id": "mscorr-priv-001"}
+        },
+        {
+          "event_id": "evt-priv-001-b",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "AuditLogs",
+          "event_type": "directory_role_assignment",
+          "timestamp": "2026-07-21T00:44:32Z",
+          "outcome": "success",
+          "target": {"type": "directory_role", "name": "Global Administrator", "subject_id": "usr-1001"},
+          "privilege": {"assignment_type": "permanent_direct", "approval_id": null, "justification_present": false},
+          "microsoft": {"correlation_id": "mscorr-priv-001"}
+        }
+      ],
+      "sentinel": {"alert_id": "sal-priv-001", "incident_id": "sinc-priv-001", "existing_severity": "high", "analytics_rule": "Risky sign-in followed by privileged role assignment", "status": "new"},
+      "ground_truth": {"is_anomalous": true, "attack_type": "T1098 Account Manipulation", "label": "true_positive"},
+      "expected_recitals": {"decision": "recommend_human_review", "severity": "critical", "score_range": [90, 100], "remediation_recommendation": ["revoke_sessions", "remove_newly_assigned_role"], "human_review_required": true, "automatic_execution": false, "explanation_codes": ["OUTSIDE_CHANGE_WINDOW", "HIGH_RISK_SIGNIN", "UNMANAGED_DEVICE", "PERMANENT_PRIVILEGE_NO_APPROVAL"]}
+    },
+    {
+      "bundle_id": "s2-auth-001",
+      "category": "credential_attack_to_privilege",
+      "scenario": "Password spray, successful login, then privileged group membership",
+      "event_time_start": "2026-07-21T08:00:00Z",
+      "event_time_end": "2026-07-21T08:09:12Z",
+      "subject": {"id": "usr-1002", "type": "user", "upn_token": "u:usr-1002"},
+      "actor": {"id": "usr-1002", "type": "user"},
+      "correlated_events": [
+        {
+          "event_id": "evt-auth-001-a",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "SigninLogs",
+          "event_type": "password_spray_cluster",
+          "timestamp": "2026-07-21T08:00:00Z",
+          "outcome": "failure",
+          "source": {"ip": "203.0.113.88", "country": "DE"},
+          "authentication": {"failure_count": 37, "distinct_accounts": 29, "result_code": "50126"},
+          "microsoft": {"correlation_id": "mscorr-auth-001"}
+        },
+        {
+          "event_id": "evt-auth-001-b",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "SigninLogs",
+          "event_type": "interactive_sign_in",
+          "timestamp": "2026-07-21T08:06:40Z",
+          "outcome": "success",
+          "source": {"ip": "203.0.113.88", "country": "DE"},
+          "device": {"id": "dev-unknown-88", "managed": false, "compliant": false},
+          "authentication": {"mfa": "not_satisfied", "conditional_access": "not_applied", "risk_level": "medium"},
+          "microsoft": {"correlation_id": "mscorr-auth-001"}
+        },
+        {
+          "event_id": "evt-auth-001-c",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "AuditLogs",
+          "event_type": "privileged_group_member_added",
+          "timestamp": "2026-07-21T08:09:12Z",
+          "outcome": "success",
+          "target": {"type": "group", "name": "ENTRA-PROD-ADMINS", "subject_id": "usr-1002"},
+          "privilege": {"assignment_type": "group_membership", "approval_id": null},
+          "microsoft": {"correlation_id": "mscorr-auth-001"}
+        }
+      ],
+      "sentinel": {"alert_id": "sal-auth-001", "incident_id": "sinc-auth-001", "existing_severity": "high", "analytics_rule": "Password spray followed by successful sign-in", "status": "new"},
+      "ground_truth": {"is_anomalous": true, "attack_type": "T1110.003 Password Spraying", "label": "true_positive"},
+      "expected_recitals": {"decision": "recommend_human_review", "severity": "critical", "score_range": [92, 100], "remediation_recommendation": ["revoke_sessions", "remove_newly_assigned_group"], "human_review_required": true, "automatic_execution": false, "explanation_codes": ["PASSWORD_SPRAY", "SUCCESS_AFTER_FAILURES", "NEW_COUNTRY", "PRIVILEGED_GROUP_NO_APPROVAL"]}
+    },
+    {
+      "bundle_id": "s2-mfa-001",
+      "category": "mfa_fatigue_to_pim",
+      "scenario": "Repeated denied MFA prompts followed by acceptance and PIM activation",
+      "event_time_start": "2026-07-21T09:12:00Z",
+      "event_time_end": "2026-07-21T09:18:40Z",
+      "subject": {"id": "adm-2001", "type": "user", "upn_token": "u:adm-2001"},
+      "actor": {"id": "adm-2001", "type": "user"},
+      "correlated_events": [
+        {
+          "event_id": "evt-mfa-001-a",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "SigninLogs",
+          "event_type": "mfa_challenge_cluster",
+          "timestamp": "2026-07-21T09:12:00Z",
+          "outcome": "mixed",
+          "source": {"ip": "198.51.100.76", "country": "GB"},
+          "authentication": {"mfa_denied_count": 8, "mfa_final_result": "approved", "risk_level": "high"},
+          "microsoft": {"correlation_id": "mscorr-mfa-001"}
+        },
+        {
+          "event_id": "evt-mfa-001-b",
+          "source_service": "Microsoft Entra ID PIM",
+          "source_table": "AuditLogs",
+          "event_type": "pim_role_activation",
+          "timestamp": "2026-07-21T09:18:40Z",
+          "outcome": "success",
+          "target": {"type": "directory_role", "name": "Security Administrator"},
+          "privilege": {"assignment_type": "eligible_activation", "duration_minutes": 480, "approval_id": null, "justification_present": false},
+          "microsoft": {"correlation_id": "mscorr-mfa-001"}
+        }
+      ],
+      "sentinel": {"alert_id": "sal-mfa-001", "incident_id": "sinc-mfa-001", "existing_severity": "high", "analytics_rule": "MFA fatigue followed by privilege activation", "status": "new"},
+      "ground_truth": {"is_anomalous": true, "attack_type": "T1621 Multi-Factor Authentication Request Generation", "label": "true_positive"},
+      "expected_recitals": {"decision": "recommend_human_review", "severity": "critical", "score_range": [90, 100], "remediation_recommendation": ["revoke_sessions", "remove_active_privileged_role", "review_authentication_methods"], "human_review_required": true, "automatic_execution": false, "explanation_codes": ["MFA_FATIGUE", "NEW_COUNTRY", "PIM_NO_APPROVAL", "EXCESSIVE_ACTIVATION_DURATION"]}
+    },
+    {
+      "bundle_id": "s2-policy-001",
+      "category": "security_control_tampering",
+      "scenario": "Conditional Access policy disabled before privilege assignment",
+      "event_time_start": "2026-07-21T01:03:10Z",
+      "event_time_end": "2026-07-21T01:07:02Z",
+      "subject": {"id": "usr-1001", "type": "user", "upn_token": "u:usr-1001"},
+      "actor": {"id": "adm-2001", "type": "user"},
+      "correlated_events": [
+        {
+          "event_id": "evt-policy-001-a",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "AuditLogs",
+          "event_type": "conditional_access_policy_updated",
+          "timestamp": "2026-07-21T01:03:10Z",
+          "outcome": "success",
+          "target": {"type": "conditional_access_policy", "name": "Require MFA for administrators"},
+          "change": {"property": "state", "old": "enabled", "new": "disabled"},
+          "microsoft": {"correlation_id": "mscorr-policy-001"}
+        },
+        {
+          "event_id": "evt-policy-001-b",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "AuditLogs",
+          "event_type": "directory_role_assignment",
+          "timestamp": "2026-07-21T01:07:02Z",
+          "outcome": "success",
+          "target": {"type": "directory_role", "name": "Application Administrator", "subject_id": "usr-1001"},
+          "privilege": {"assignment_type": "permanent_direct", "approval_id": null},
+          "microsoft": {"correlation_id": "mscorr-policy-001"}
+        }
+      ],
+      "sentinel": {"alert_id": "sal-policy-001", "incident_id": "sinc-policy-001", "existing_severity": "high", "analytics_rule": "Conditional Access weakened before admin role assignment", "status": "new"},
+      "ground_truth": {"is_anomalous": true, "attack_type": "T1562.007 Disable or Modify Cloud Firewall", "label": "true_positive"},
+      "expected_recitals": {"decision": "recommend_human_review", "severity": "critical", "score_range": [95, 100], "remediation_recommendation": ["restore_conditional_access_policy", "remove_newly_assigned_role"], "human_review_required": true, "automatic_execution": false, "explanation_codes": ["SECURITY_POLICY_DISABLED", "OUTSIDE_CHANGE_WINDOW", "PRIVILEGE_AFTER_CONTROL_WEAKENING"]}
+    },
+    {
+      "bundle_id": "s2-app-001",
+      "category": "workload_identity_escalation",
+      "scenario": "Admin consent and new service-principal credential followed by unusual sign-in",
+      "event_time_start": "2026-07-21T10:20:00Z",
+      "event_time_end": "2026-07-21T10:27:19Z",
+      "subject": {"id": "spn-3001", "type": "service_principal", "upn_token": null},
+      "actor": {"id": "adm-2001", "type": "user"},
+      "correlated_events": [
+        {
+          "event_id": "evt-app-001-a",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "AuditLogs",
+          "event_type": "admin_consent_granted",
+          "timestamp": "2026-07-21T10:20:00Z",
+          "outcome": "success",
+          "target": {"type": "service_principal", "id": "spn-3001", "name": "Synthetic Report Exporter"},
+          "permissions": ["Directory.ReadWrite.All", "RoleManagement.ReadWrite.Directory"],
+          "microsoft": {"correlation_id": "mscorr-app-001"}
+        },
+        {
+          "event_id": "evt-app-001-b",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "AuditLogs",
+          "event_type": "service_principal_credential_added",
+          "timestamp": "2026-07-21T10:23:12Z",
+          "outcome": "success",
+          "target": {"type": "service_principal", "id": "spn-3001"},
+          "credential": {"type": "client_secret", "key_id": "key-synthetic-3001", "lifetime_days": 730},
+          "microsoft": {"correlation_id": "mscorr-app-001"}
+        },
+        {
+          "event_id": "evt-app-001-c",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "AADServicePrincipalSignInLogs",
+          "event_type": "service_principal_sign_in",
+          "timestamp": "2026-07-21T10:27:19Z",
+          "outcome": "success",
+          "source": {"ip": "203.0.113.201", "country": "US"},
+          "target": {"type": "resource", "name": "Microsoft Graph"},
+          "microsoft": {"correlation_id": "mscorr-app-001"}
+        }
+      ],
+      "sentinel": {"alert_id": "sal-app-001", "incident_id": "sinc-app-001", "existing_severity": "high", "analytics_rule": "Credential added to highly privileged application", "status": "new"},
+      "ground_truth": {"is_anomalous": true, "attack_type": "T1098.001 Additional Cloud Credentials", "label": "true_positive"},
+      "expected_recitals": {"decision": "recommend_human_review", "severity": "critical", "score_range": [93, 100], "remediation_recommendation": ["revoke_new_credential", "disable_service_principal"], "human_review_required": true, "automatic_execution": false, "explanation_codes": ["HIGH_PRIVILEGE_APP_CONSENT", "NEW_LONG_LIVED_SECRET", "FIRST_SEEN_COUNTRY"]}
+    },
+    {
+      "bundle_id": "s2-guest-001",
+      "category": "guest_privilege_escalation",
+      "scenario": "New guest immediately added to production administrators group",
+      "event_time_start": "2026-07-21T11:04:20Z",
+      "event_time_end": "2026-07-21T11:08:45Z",
+      "subject": {"id": "gst-4001", "type": "guest", "upn_token": "u:gst-4001"},
+      "actor": {"id": "adm-2001", "type": "user"},
+      "correlated_events": [
+        {"event_id": "evt-guest-001-a", "source_service": "Microsoft Entra ID", "source_table": "AuditLogs", "event_type": "guest_invited", "timestamp": "2026-07-21T11:04:20Z", "outcome": "success", "target": {"type": "guest", "id": "gst-4001"}, "microsoft": {"correlation_id": "mscorr-guest-001"}},
+        {"event_id": "evt-guest-001-b", "source_service": "Microsoft Entra ID", "source_table": "AuditLogs", "event_type": "privileged_group_member_added", "timestamp": "2026-07-21T11:08:45Z", "outcome": "success", "target": {"type": "group", "name": "ENTRA-PROD-ADMINS", "subject_id": "gst-4001"}, "privilege": {"assignment_type": "group_membership", "approval_id": null}, "microsoft": {"correlation_id": "mscorr-guest-001"}}
+      ],
+      "sentinel": {"alert_id": "sal-guest-001", "incident_id": "sinc-guest-001", "existing_severity": "high", "analytics_rule": "Guest added to privileged group shortly after invitation", "status": "new"},
+      "ground_truth": {"is_anomalous": true, "attack_type": "T1136.003 Cloud Account", "label": "true_positive"},
+      "expected_recitals": {"decision": "recommend_human_review", "severity": "critical", "score_range": [90, 100], "remediation_recommendation": ["remove_newly_assigned_group", "disable_guest_account"], "human_review_required": true, "automatic_execution": false, "explanation_codes": ["NEW_GUEST", "RAPID_PRIVILEGE_ASSIGNMENT", "NO_APPROVAL"]}
+    },
+    {
+      "bundle_id": "s2-hybrid-001",
+      "category": "hybrid_ad_privilege_escalation",
+      "scenario": "On-premises account added to Domain Admins followed by privileged logon",
+      "event_time_start": "2026-07-21T12:00:10Z",
+      "event_time_end": "2026-07-21T12:03:33Z",
+      "subject": {"id": "usr-1002", "type": "hybrid_user", "upn_token": "u:usr-1002"},
+      "actor": {"id": "adm-onprem-01", "type": "ad_user"},
+      "correlated_events": [
+        {
+          "event_id": "evt-hybrid-001-a",
+          "source_service": "Active Directory Domain Services",
+          "source_table": "SecurityEvent",
+          "event_type": "ad_privileged_group_member_added",
+          "windows_event_id": 4728,
+          "timestamp": "2026-07-21T12:00:10Z",
+          "outcome": "success",
+          "host": {"id": "dc-01", "role": "domain_controller"},
+          "target": {"type": "group", "name": "AD-DOMAIN-ADMINS", "subject_id": "usr-1002"},
+          "microsoft": {"correlation_id": "mscorr-hybrid-001", "logon_id": "0x9F301"}
+        },
+        {
+          "event_id": "evt-hybrid-001-b",
+          "source_service": "Active Directory Domain Services",
+          "source_table": "SecurityEvent",
+          "event_type": "special_privileges_assigned_to_logon",
+          "windows_event_id": 4672,
+          "timestamp": "2026-07-21T12:03:33Z",
+          "outcome": "success",
+          "host": {"id": "srv-fin-01", "role": "application_server"},
+          "source": {"ip": "10.20.30.44", "country": null},
+          "microsoft": {"correlation_id": "mscorr-hybrid-001", "logon_id": "0x9F301"}
+        }
+      ],
+      "sentinel": {"alert_id": "sal-hybrid-001", "incident_id": "sinc-hybrid-001", "existing_severity": "high", "analytics_rule": "Domain Admin membership followed by privileged logon", "status": "new"},
+      "ground_truth": {"is_anomalous": true, "attack_type": "T1098 Account Manipulation", "label": "true_positive"},
+      "expected_recitals": {"decision": "recommend_human_review", "severity": "critical", "score_range": [92, 100], "remediation_recommendation": ["remove_domain_admin_membership", "disable_account"], "human_review_required": true, "automatic_execution": false, "explanation_codes": ["DOMAIN_ADMIN_ADDED", "RAPID_PRIVILEGED_LOGON", "ROLE_BASELINE_MISMATCH"]}
+    },
+    {
+      "bundle_id": "s2-defender-001",
+      "category": "endpoint_confirmed_identity_compromise",
+      "scenario": "Suspicious process on endpoint corroborates Entra role assignment",
+      "event_time_start": "2026-07-21T13:20:00Z",
+      "event_time_end": "2026-07-21T13:26:15Z",
+      "subject": {"id": "usr-1001", "type": "user", "upn_token": "u:usr-1001"},
+      "actor": {"id": "usr-1001", "type": "user"},
+      "correlated_events": [
+        {
+          "event_id": "evt-def-001-a",
+          "source_service": "Microsoft Defender for Endpoint",
+          "source_table": "DeviceProcessEvents",
+          "event_type": "suspicious_process_execution",
+          "timestamp": "2026-07-21T13:20:00Z",
+          "outcome": "observed",
+          "device": {"id": "dev-1001", "managed": true, "compliant": true},
+          "process": {"name": "powershell.exe", "command_line_redacted": true, "indicator": "token_access_automation"},
+          "microsoft": {"correlation_id": "mscorr-def-001"}
+        },
+        {
+          "event_id": "evt-def-001-b",
+          "source_service": "Microsoft Defender XDR",
+          "source_table": "SecurityAlert",
+          "event_type": "endpoint_alert",
+          "timestamp": "2026-07-21T13:22:12Z",
+          "outcome": "active",
+          "alert": {"title": "Suspicious token manipulation", "severity": "high", "provider": "Microsoft Defender for Endpoint"},
+          "microsoft": {"correlation_id": "mscorr-def-001"}
+        },
+        {
+          "event_id": "evt-def-001-c",
+          "source_service": "Microsoft Entra ID",
+          "source_table": "AuditLogs",
+          "event_type": "directory_role_assignment",
+          "timestamp": "2026-07-21T13:26:15Z",
+          "outcome": "success",
+          "target": {"type": "directory_role", "name": "Security Administrator", "subject_id": "usr-1001"},
+          "privilege": {"assignment_type": "permanent_direct", "approval_id": null},
+          "microsoft": {"correlation_id": "mscorr-def-001"}
+        }
+      ],
+      "sentinel": {"alert_id": "sal-def-001", "incident_id": "sinc-def-001", "existing_severity": "high", "analytics_rule": "Defender compromise followed by Entra role change", "status": "new"},
+      "ground_truth": {"is_anomalous": true, "attack_type": "T1134 Access Token Manipulation", "label": "true_positive"},
+      "expected_recitals": {"decision": "recommend_human_review", "severity": "critical", "score_range": [95, 100], "remediation_recommendation": ["isolate_device", "revoke_sessions", "remove_newly_assigned_role"], "human_review_required": true, "automatic_execution": false, "explanation_codes": ["ENDPOINT_COMPROMISE_ALERT", "TOKEN_MANIPULATION", "PRIVILEGE_AFTER_COMPROMISE"]}
+    },
+    {
+      "bundle_id": "s2-lifecycle-001",
+      "category": "disabled_or_leaver_account_abuse",
+      "scenario": "Disabled employee account re-enabled and assigned a privileged role",
+      "event_time_start": "2026-07-21T14:02:00Z",
+      "event_time_end": "2026-07-21T14:05:44Z",
+      "subject": {"id": "usr-leaver-01", "type": "user", "upn_token": "u:usr-leaver-01"},
+      "actor": {"id": "adm-2001", "type": "user"},
+      "correlated_events": [
+        {"event_id": "evt-life-001-a", "source_service": "Microsoft Entra ID", "source_table": "AuditLogs", "event_type": "account_enabled", "timestamp": "2026-07-21T14:02:00Z", "outcome": "success", "target": {"type": "user", "id": "usr-leaver-01"}, "change": {"property": "accountEnabled", "old": false, "new": true}, "microsoft": {"correlation_id": "mscorr-life-001"}},
+        {"event_id": "evt-life-001-b", "source_service": "Microsoft Entra ID", "source_table": "AuditLogs", "event_type": "directory_role_assignment", "timestamp": "2026-07-21T14:05:44Z", "outcome": "success", "target": {"type": "directory_role", "name": "User Administrator", "subject_id": "usr-leaver-01"}, "privilege": {"assignment_type": "permanent_direct", "approval_id": null}, "microsoft": {"correlation_id": "mscorr-life-001"}}
+      ],
+      "context": {"employment_status": "terminated", "termination_time": "2026-07-18T15:00:00Z", "source": "synthetic_identity_context"},
+      "sentinel": {"alert_id": "sal-life-001", "incident_id": "sinc-life-001", "existing_severity": "high", "analytics_rule": "Disabled or leaver account reactivated and privileged", "status": "new"},
+      "ground_truth": {"is_anomalous": true, "attack_type": "T1078 Valid Accounts", "label": "true_positive"},
+      "expected_recitals": {"decision": "recommend_human_review", "severity": "critical", "score_range": [96, 100], "remediation_recommendation": ["disable_account", "revoke_sessions", "remove_newly_assigned_role"], "human_review_required": true, "automatic_execution": false, "explanation_codes": ["TERMINATED_IDENTITY", "ACCOUNT_REENABLED", "PRIVILEGE_ASSIGNED"]}
+    },
+    {
+      "bundle_id": "s2-fp-001",
+      "category": "approved_emergency_change",
+      "scenario": "Out-of-hours role activation covered by an approved emergency change",
+      "event_time_start": "2026-07-21T02:00:00Z",
+      "event_time_end": "2026-07-21T02:04:10Z",
+      "subject": {"id": "adm-2001", "type": "user", "upn_token": "u:adm-2001"},
+      "actor": {"id": "adm-2001", "type": "user"},
+      "correlated_events": [
+        {"event_id": "evt-fp-001-a", "source_service": "Microsoft Entra ID", "source_table": "SigninLogs", "event_type": "interactive_sign_in", "timestamp": "2026-07-21T02:00:00Z", "outcome": "success", "source": {"ip": "192.0.2.10", "country": "GR"}, "device": {"id": "paw-2001", "managed": true, "compliant": true}, "authentication": {"mfa": "satisfied", "conditional_access": "success", "risk_level": "none"}, "microsoft": {"correlation_id": "mscorr-fp-001"}},
+        {"event_id": "evt-fp-001-b", "source_service": "Microsoft Entra ID PIM", "source_table": "AuditLogs", "event_type": "pim_role_activation", "timestamp": "2026-07-21T02:04:10Z", "outcome": "success", "target": {"type": "directory_role", "name": "Security Administrator"}, "privilege": {"assignment_type": "eligible_activation", "duration_minutes": 60, "approval_id": "pim-approval-emergency-01", "justification_present": true}, "microsoft": {"correlation_id": "mscorr-fp-001"}}
+      ],
+      "context": {"approved_change_id": "chg-emergency-0001", "change_status": "approved", "valid_window_utc": "01:45-03:00"},
+      "sentinel": {"alert_id": "sal-fp-001", "incident_id": "sinc-fp-001", "existing_severity": "medium", "analytics_rule": "Out-of-hours privileged role activation", "status": "new"},
+      "ground_truth": {"is_anomalous": false, "attack_type": "none", "label": "false_positive_candidate"},
+      "expected_recitals": {"decision": "downgrade_or_close_after_validation", "severity": "low", "score_range": [10, 35], "remediation_recommendation": [], "human_review_required": true, "automatic_execution": false, "explanation_codes": ["APPROVED_EMERGENCY_CHANGE", "TRUSTED_DEVICE", "MFA_SATISFIED", "PIM_APPROVED"]}
+    }
+  ],
+  "expected_api_response_shape": {
+    "batch_id": "batch-s2-20260721-0001",
+    "accepted": 11,
+    "rejected": 0,
+    "processing_status": "queued",
+    "receipt_id": "receipt-synthetic-0001"
+  }
+}
