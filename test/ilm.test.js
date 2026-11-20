@@ -75,7 +75,7 @@ test('batch atomicity, durable idempotency and conflict detection', () => {
 });
 test('API authentication, replay boundary, input errors and retrieval', async () => {
   const store = new Store(':memory:'), token = 'test-token-with-at-least-24-characters';
-  const server = createServer({ store, token, allowReplay: false });
+  const server = createServer({ store, token, allowReplay: false, logger: { log() {} } });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`, path = '/api/v1/identity-lifecycle/cases/batch';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'Idempotency-Key': dataset.batch_id };

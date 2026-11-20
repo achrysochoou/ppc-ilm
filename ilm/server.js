@@ -2,16 +2,42 @@ import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { Store, Conflict } from './store.js';
 import { timestamp } from './engine.js';
-export function createServer({ store = new Store(process.env.ILM_DB), token = process.env.ILM_API_TOKEN, allowReplay = process.env.ILM_ALLOW_REPLAY === 'true' } = {}) {
+import { createLogger, requestId, batchSummary, responseSummary } from './logging.js';
+export function createServer({ store = new Store(process.env.ILM_DB), token = process.env.ILM_API_TOKEN, allowReplay = process.env.ILM_ALLOW_REPLAY === 'true', logger = createLogger(), logHealth = process.env.ILM_LOG_HEALTH === 'true' } = {}) {
   if (!token || token.length < 24) throw new Error('Set ILM_API_TOKEN to at least 24 random characters');
   return http.createServer(async (req, res) => {
-    const send = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
-    const url = new URL(req.url, 'http://localhost');
+    const id = requestId(req.headers['x-request-id']), started = performance.now();
+    let requestBytes = 0, responseBytes = 0, requestSummary, replySummary, route = 'unmatched', finished = false;
+    const method = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].includes(req.method) ? req.method : 'OTHER';
+    res.setHeader('X-Request-ID', id);
+    req.on('data', chunk => { requestBytes += chunk.length; });
+    let url;
+    try { url = new URL(req.url, 'http://localhost'); } catch {}
+    const quiet = !logHealth && url?.pathname === '/health/ready' && req.method === 'GET';
+    const log = entry => { try { logger.log({ request_id: id, ...entry }); } catch {} };
+    if (!quiet) log({ level: 'info', event: 'http.request', method });
+    const complete = aborted => {
+      if (finished) return;
+      finished = true;
+      if (quiet && !aborted && res.statusCode < 400) return;
+      log({ level: aborted || res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info', event: aborted ? 'http.aborted' : 'http.response', method, route, status: aborted ? null : res.statusCode, duration_ms: Math.round((performance.now() - started) * 1000) / 1000, request_bytes: requestBytes, response_bytes: responseBytes, request: requestSummary, response: replySummary });
+    };
+    res.once('finish', () => complete(false));
+    res.once('close', () => complete(!res.writableFinished));
+    const send = (status, body) => {
+      const serialized = JSON.stringify(body);
+      responseBytes = Buffer.byteLength(serialized); replySummary = responseSummary(body);
+      res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(serialized);
+    };
+    if (!url) return send(400, { error: 'Invalid request URL' });
+    if (url.pathname === '/health/ready') route = '/health/ready';
+    if (url.pathname === '/api/v1/identity-lifecycle/cases/batch') route = '/api/v1/identity-lifecycle/cases/batch';
     if (req.method === 'GET' && url.pathname === '/health/ready') return send(200, { status: 'ready' });
     const supplied = Buffer.from(req.headers.authorization || ''), expected = Buffer.from(`Bearer ${token}`);
     if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return send(401, { error: 'Unauthorized' });
     try {
       const match = url.pathname.match(/^\/api\/v1\/identity-lifecycle\/batches\/([^/]+)(\/audit)?$/);
+      if (match) route = '/api/v1/identity-lifecycle/batches/:batch_id' + (match[2] ? '/audit' : '');
       if (req.method === 'GET' && match) {
         const id = decodeURIComponent(match[1]), batch = store.get(id);
         return send(batch ? 200 : 404, batch ? (match[2] ? store.audit(id) : batch) : { error: 'Batch not found' });
@@ -21,6 +47,7 @@ export function createServer({ store = new Store(process.env.ILM_DB), token = pr
       let size = 0, chunks = [];
       for await (const chunk of req) { size += chunk.length; if (size > 1024 * 1024) { send(413, { error: 'Maximum body size is 1 MiB' }); return; } chunks.push(chunk); }
       const batch = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      requestSummary = batchSummary(batch);
       if (req.headers['idempotency-key'] !== batch.batch_id) return send(400, { error: 'Idempotency-Key must equal batch_id' });
       const mode = url.searchParams.get('mode') || 'plan';
       if (!['plan', 'replay'].includes(mode)) return send(400, { error: 'mode must be plan or replay' });
@@ -31,13 +58,23 @@ export function createServer({ store = new Store(process.env.ILM_DB), token = pr
     } catch (e) {
       if (e instanceof Conflict) return send(409, { error: e.message });
       if (e instanceof SyntaxError || !(e.code)) return send(400, { error: e.message });
-      console.error('ILM storage failure', e.code);
+      log({ level: 'error', event: 'storage.failure' });
       return send(500, { error: 'Internal storage failure' });
     }
   });
 }
 if (process.argv[1]?.replaceAll('\\', '/').endsWith('/ilm/server.js')) {
-  const server = createServer();
+  const logger = createLogger();
+  const server = createServer({ logger });
   server.requestTimeout = 15000;
-  server.listen(Number(process.env.PORT || 8000), process.env.ILM_HOST || '127.0.0.1', () => console.log('ILM pilot API listening'));
+  server.listen(Number(process.env.PORT || 8000), process.env.ILM_HOST || '127.0.0.1', () => logger.log({ level: 'info', event: 'server.started', port: server.address().port }));
+  let stopping = false;
+  const shutdown = () => {
+    if (stopping) return;
+    stopping = true;
+    const deadline = setTimeout(() => process.exit(1), 10000).unref();
+    server.close(async () => { logger.log({ level: 'info', event: 'server.stopped' }); await logger.close(); clearTimeout(deadline); });
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }

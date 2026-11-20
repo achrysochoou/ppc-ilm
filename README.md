@@ -43,6 +43,40 @@ Default `plan` mode computes actions without changing targets. Future-effective 
 
 Batches contain 1-50 cases and are limited to 1 MiB. Identical batch IDs and payloads return the original result; reuse with different content/options returns 409. Invalid structure returns 400 without partial storage. Business-policy rejection is a per-case result. SQLite persists results and audit entries in one transaction. Changing evaluation labels does not change batch identity.
 
+## Request and response logs
+
+The API writes one JSON line for request receipt and another for response completion
+or disconnection. `X-Request-ID` is returned to the caller and included in both
+records; safe IDs supplied by callers are preserved. Response logs contain the
+route template, HTTP status, elapsed milliseconds, byte counts, a SHA-256 batch
+reference and case/record counts. Rejected requests and storage failures are logged
+too. Successful readiness probes are excluded unless `ILM_LOG_HEALTH=true`.
+
+Logging uses an explicit metadata allowlist: raw bodies, headers, query strings,
+identity attributes, passwords, tokens, expected answers and raw exception messages
+are excluded. These are operational summaries, not full request/response archives.
+Lifecycle decisions remain in the separate SQLite audit store.
+
+The writer queues at most `ILM_LOG_QUEUE_BYTES` bytes (default 1 MiB). A slow sink
+causes excess records to be dropped, followed by a `logging.dropped` count when it
+catches up. Logging does not block requests awaiting delivery. Sink failures are
+counted and reported to stderr at most once per minute. This is best-effort
+operational logging, not a guaranteed-delivery compliance journal. Shutdown drains
+the queue with a ten-second deadline.
+
+Docker's local logging driver retains five files of up to 10 MiB each for the ILM
+container, rotating automatically. This is size-based retention, not a time-based
+archive. View records with:
+
+```powershell
+docker compose --env-file .env.local logs --tail 100 -f ilm
+```
+
+When using `npm start`, output goes to the terminal; the process supervisor or
+collector must provide rotation. SQLite audit retention is independent and has
+not been changed. Live external connector calls are still unimplemented, so their
+outbound request/response logging is not yet present.
+
 ## Policy behavior
 
 Policies and birthright profiles are operator-owned in `ilm/engine.js`, never loaded from submitted reference data or policy conclusions. The processor removes `ground_truth`, `expected_recitals`, `expected_batch_result` and `policy_evaluation` before evaluation and persistence.

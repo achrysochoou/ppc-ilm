@@ -1,5 +1,10 @@
 services:
   ilm:
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "5"
     build: .
     restart: unless-stopped
     ports:
@@ -8,6 +13,8 @@ services:
       ILM_API_TOKEN: ${ILM_API_TOKEN:?Set ILM_API_TOKEN in .env.local}
       ILM_ALLOW_REPLAY: ${ILM_ALLOW_REPLAY:-false}
       ILM_DB: /app/runtime/ilm.sqlite
+      ILM_LOG_QUEUE_BYTES: ${ILM_LOG_QUEUE_BYTES:-1048576}
+      ILM_LOG_HEALTH: ${ILM_LOG_HEALTH:-false}
     volumes:
       - ilm_data:/app/runtime
     healthcheck:
