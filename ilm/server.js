@@ -1,16 +1,14 @@
 import http from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { createKeycloakAuth, IdentityProviderError } from './auth.js';
 import { Store, Conflict } from './store.js';
 import { timestamp } from './engine.js';
 import { createLogger, requestId, batchSummary, responseSummary } from './logging.js';
-export function createServer({ store = new Store(process.env.ILM_DB), token = process.env.ILM_API_TOKEN, allowReplay = process.env.ILM_ALLOW_REPLAY === 'true', logger = createLogger(), logHealth = process.env.ILM_LOG_HEALTH === 'true' } = {}) {
-  if (!token || token.length < 24) throw new Error('Set ILM_API_TOKEN to at least 24 random characters');
+export function createServer({ store = new Store(process.env.ILM_DB), authenticate = createKeycloakAuth(), allowReplay = process.env.ILM_ALLOW_REPLAY === 'true', logger = createLogger(), logHealth = process.env.ILM_LOG_HEALTH === 'true' } = {}) {
   return http.createServer(async (req, res) => {
     const id = requestId(req.headers['x-request-id']), started = performance.now();
     let requestBytes = 0, responseBytes = 0, requestSummary, replySummary, route = 'unmatched', finished = false;
     const method = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].includes(req.method) ? req.method : 'OTHER';
     res.setHeader('X-Request-ID', id);
-    req.on('data', chunk => { requestBytes += chunk.length; });
     let url;
     try { url = new URL(req.url, 'http://localhost'); } catch {}
     const quiet = !logHealth && url?.pathname === '/health/ready' && req.method === 'GET';
@@ -33,19 +31,26 @@ export function createServer({ store = new Store(process.env.ILM_DB), token = pr
     if (url.pathname === '/health/ready') route = '/health/ready';
     if (url.pathname === '/api/v1/identity-lifecycle/cases/batch') route = '/api/v1/identity-lifecycle/cases/batch';
     if (req.method === 'GET' && url.pathname === '/health/ready') return send(200, { status: 'ready' });
-    const supplied = Buffer.from(req.headers.authorization || ''), expected = Buffer.from(`Bearer ${token}`);
-    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return send(401, { error: 'Unauthorized' });
+    let principal;
+    try { principal = await authenticate(req.headers.authorization); }
+    catch (error) {
+      if (error instanceof IdentityProviderError) return send(503, { error: 'Identity provider unavailable' });
+      res.setHeader('WWW-Authenticate', 'Bearer');
+      return send(401, { error: 'Unauthorized' });
+    }
     try {
       const match = url.pathname.match(/^\/api\/v1\/identity-lifecycle\/batches\/([^/]+)(\/audit)?$/);
       if (match) route = '/api/v1/identity-lifecycle/batches/:batch_id' + (match[2] ? '/audit' : '');
       if (req.method === 'GET' && match) {
+        if (!principal.roles.has(match[2] ? 'ilm-audit-read' : 'ilm-read')) return send(403, { error: 'Forbidden' });
         const id = decodeURIComponent(match[1]), batch = store.get(id);
         return send(batch ? 200 : 404, batch ? (match[2] ? store.audit(id) : batch) : { error: 'Batch not found' });
       }
       if (req.method !== 'POST' || url.pathname !== '/api/v1/identity-lifecycle/cases/batch') return send(404, { error: 'Not found' });
+      if (!principal.roles.has('ilm-submit')) return send(403, { error: 'Forbidden' });
       if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) return send(415, { error: 'Use application/json' });
       let size = 0, chunks = [];
-      for await (const chunk of req) { size += chunk.length; if (size > 1024 * 1024) { send(413, { error: 'Maximum body size is 1 MiB' }); return; } chunks.push(chunk); }
+      for await (const chunk of req) { size += chunk.length; requestBytes += chunk.length; if (size > 1024 * 1024) { send(413, { error: 'Maximum body size is 1 MiB' }); return; } chunks.push(chunk); }
       const batch = JSON.parse(Buffer.concat(chunks).toString('utf8'));
       requestSummary = batchSummary(batch);
       if (req.headers['idempotency-key'] !== batch.batch_id) return send(400, { error: 'Idempotency-Key must equal batch_id' });

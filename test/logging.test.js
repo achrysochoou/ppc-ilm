@@ -4,6 +4,7 @@ import { Writable } from 'node:stream';
 import { createLogger, requestId } from '../ilm/logging.js';
 import { createServer } from '../ilm/server.js';
 import { Store } from '../ilm/store.js';
+import { stubAuth } from '../test-support/oidc.js';
 
 test('bounded queue reports dropped records after the collector catches up', async () => {
   const lines = [], callbacks = [];
@@ -37,7 +38,7 @@ test('HTTP logging correlates responses, excludes secrets and handles concurrent
   const lines = [];
   const sink = new Writable({ write(chunk, encoding, done) { lines.push(JSON.parse(chunk.toString())); done(); } });
   const logger = createLogger({ sink }), store = new Store(':memory:'), token = 'private-api-token-never-log-this';
-  const server = createServer({ store, token, logger });
+  const server = createServer({ store, authenticate: stubAuth(token), logger });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Request-ID': 'pilot-request-12', 'Idempotency-Key': 'private-batch-id' };
@@ -66,7 +67,7 @@ test('HTTP logging correlates responses, excludes secrets and handles concurrent
 
 test('logging failures cannot prevent a response', async () => {
   const store = new Store(':memory:');
-  const server = createServer({ store, token: 'test-token-long-enough-for-api', logger: { log() { throw new Error('bad collector'); } } });
+  const server = createServer({ store, authenticate: stubAuth('test-token-long-enough-for-api'), logger: { log() { throw new Error('bad collector'); } } });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try { assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/missing`)).status, 401); }
   finally { await new Promise(resolve => server.close(resolve)); store.close(); }
@@ -74,7 +75,7 @@ test('logging failures cannot prevent a response', async () => {
 
 test('storage errors return correlated metadata without logging error content', async () => {
   const entries = [], token = 'test-token-long-enough-for-api';
-  const server = createServer({ token, store: { get() { throw Object.assign(new Error('private storage detail'), { code: 'SQLITE_ERROR' }); } }, logger: { log(entry) { entries.push(entry); } } });
+  const server = createServer({ authenticate: stubAuth(token), store: { get() { throw Object.assign(new Error('private storage detail'), { code: 'SQLITE_ERROR' }); } }, logger: { log(entry) { entries.push(entry); } } });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/identity-lifecycle/batches/test`, { headers: { Authorization: `Bearer ${token}` } });

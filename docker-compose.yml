@@ -1,5 +1,8 @@
 services:
   ilm:
+    depends_on:
+      keycloak:
+        condition: service_healthy
     logging:
       driver: local
       options:
@@ -10,7 +13,9 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     environment:
-      ILM_API_TOKEN: ${ILM_API_TOKEN:?Set ILM_API_TOKEN in .env.local}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:8080/realms/ppc-pilot}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/ppc-pilot/protocol/openid-connect/certs
+      ILM_AUDIENCE: ilm-api
       ILM_ALLOW_REPLAY: ${ILM_ALLOW_REPLAY:-false}
       ILM_DB: /app/runtime/ilm.sqlite
       ILM_LOG_QUEUE_BYTES: ${ILM_LOG_QUEUE_BYTES:-1048576}
@@ -52,21 +57,33 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d:ro
-    ports:
-      - "127.0.0.1:5432:5432"
-
   #---------------------------------------------------
   # Shared keycloak
   # ---------------------------------------------------
   keycloak:
     image: quay.io/keycloak/keycloak:26.3
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -ec
+        - |
+          exec 3<>/dev/tcp/127.0.0.1/9000
+          printf 'HEAD /health/ready HTTP/1.0\r\n\r\n' >&3
+          grep -q 'HTTP/1.0 200' <&3
+      interval: 5s
+      timeout: 3s
+      start_period: 60s
+      retries: 36
     container_name: keycloak
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${KEYCLOAK_HTTP_PORT:-8080}:8080"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env.local}
@@ -76,10 +93,13 @@ services:
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env.local}
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
+      ILM_PILOT_CLIENT_SECRET: ${ILM_PILOT_CLIENT_SECRET:?Run node scripts/setup-env.js}
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
     command:
       - start-dev
+      - --import-realm
 
   #---------------------------------------------------
   # Shared syncope

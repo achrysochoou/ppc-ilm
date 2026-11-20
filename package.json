@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env.local ilm/server.js",
     "test": "node --test",
-    "pilot": "node scripts/run-pilot.js"
+    "check:auth": "node --env-file-if-exists=.env.local scripts/check-auth.js",
+    "pilot": "node --env-file-if-exists=.env.local scripts/run-pilot.js"
   }
 }

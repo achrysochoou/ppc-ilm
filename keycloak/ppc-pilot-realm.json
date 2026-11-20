@@ -1,0 +1,61 @@
+{
+  "realm": "ppc-pilot",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "client": {
+      "ilm-api": [
+        { "name": "ilm-submit" },
+        { "name": "ilm-read" },
+        { "name": "ilm-audit-read" }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "ilm-api",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true
+    },
+    {
+      "clientId": "ilm-pilot",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${ILM_PILOT_CLIENT_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": false,
+      "protocolMappers": [
+        {
+          "name": "ilm-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.client.audience": "ilm-api", "access.token.claim": "true", "id.token.claim": "false" }
+        },
+        {
+          "name": "ilm-api-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "config": { "usermodel.clientRoleMapping.clientId": "ilm-api", "claim.name": "resource_access.ilm-api.roles", "jsonType.label": "String", "multivalued": "true", "access.token.claim": "true", "id.token.claim": "false" }
+        }
+      ]
+    }
+  ],
+  "clientScopeMappings": {
+    "ilm-api": [{ "client": "ilm-pilot", "roles": ["ilm-submit", "ilm-read", "ilm-audit-read"] }]
+  },
+  "users": [
+    {
+      "username": "service-account-ilm-pilot",
+      "enabled": true,
+      "serviceAccountClientId": "ilm-pilot",
+      "clientRoles": { "ilm-api": ["ilm-submit", "ilm-read", "ilm-audit-read"] }
+    }
+  ]
+}
